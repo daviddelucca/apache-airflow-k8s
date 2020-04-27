@@ -1,0 +1,36 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: nfs-airflow-logs
+  namespace: airflow
+spec:
+  capacity:
+    storage: 16Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  storageClassName: aws-efs
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+    - rsize=1048576
+    - wsize=1048576
+    - timeo=600
+    - retrans=2
+  nfs:
+    path: /
+    server: <change>
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: nfs-airflow-logs
+  namespace: airflow
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: aws-efs
+  resources:
+    requests:
+      storage: 8Gi
+  volumeName: nfs-airflow-logs

@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+  labels:
+    run: airflow-webserver
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    run: airflow-webserver
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+  labels:
+    app: airflow-webserver
+    run: airflow-webserver
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+  - host: <change>
+    http:
+      paths:
+      - backend:
+          serviceName: airflow-webserver
+          servicePort: 80
+  tls:
+  - hosts:
+    - <change>
+    secretName: airflow-tls
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: airflow
+  name: airflow-webserver
+  labels:
+    run: airflow-webserver
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: airflow-webserver
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: webserver
+          image: <change>:<change>
+          volumeMounts:
+          - name: logs
+            mountPath: /airflow/logs
+          env:
+            - name: AIRFLOW__CORE__REMOTE_BASE_LOG_FOLDER
+              value: <change>
+            - name: AIRFLOW__CORE_REMOTE_LOG_CONN_ID
+              value: <change>
+            - name: AIRFLOW__CORE__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__CORE__ENCRYPT_S3_LOGS
+              value: "False"
+            - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
+              value: "True"
+            - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow
+                  key: sqlAlchemyConn
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow
+                  key: fernetKey
+            - name: AIRFLOW__WEBSERVER__AUTHENTICATE
+              value: "True"
+            - name: AIRFLOW__WEBSERVER__AUTH_BACKEND
+              value: "airflow.contrib.auth.backends.password_auth" 
+            - name: AIRFLOW__WEBSERVER__BASE_URL
+              value: "<change>"
+            - name: AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY
+              value: "<change>"
+            - name: AIRFLOW__CORE__DAG_PROCESSOR_MANAGER_LOG_ROTATION
+              value: "<change>"
+            - name: AIRFLOW__CORE__BASE_LOG_FOLDER
+              value: "<change>"
+            - name: AIRFLOW__KUBERNETES__LOGS_VOLUME_CLAIM
+              value: "nfs-airflow-logs"
+            - name: AIRFLOW__WEBSERVER__LOG_FETCH_TIMEOUT_SEC
+              value: "30"
+          ports:
+            - containerPort: 8080
+          command: ["airflow"]
+          args: ["webserver"]
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "5120Mi"
+            requests:
+              cpu: "100m"
+              memory: "4096Mi"              
+      volumes:
+          - name: logs
+            persistentVolumeClaim:
+              claimName: nfs-airflow-logs

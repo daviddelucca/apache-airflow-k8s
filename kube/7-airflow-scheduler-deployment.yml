@@ -1,0 +1,109 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  namespace: airflow
+  name: airflow-scheduler
+  labels:
+    name: airflow-scheduler
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+    spec:
+      terminationGracePeriodSeconds: 60
+      serviceAccountName: airflow-executor
+      containers:        
+        - name: scheduler
+          image: <change>:<change>
+          volumeMounts:
+          - name: logs
+            mountPath: /airflow/logs
+          env:
+            - name: AIRFLOW__CORE__REMOTE_BASE_LOG_FOLDER
+              value: "<change>"
+            - name: AIRFLOW__CORE_REMOTE_LOG_CONN_ID
+              value: "<change>"
+            - name: AIRFLOW__CORE__REMOTE_LOGGING
+              value: "True"
+            - name: AIRFLOW__CORE__ENCRYPT_S3_LOGS
+              value: "False"
+            - name: AIRFLOW__CORE__EXECUTOR              
+              value: "KubernetesExecutor"
+            - name: AIRFLOW__WEBSERVER__EXPOSE_CONFIG
+              value: "True"
+            - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+              valueFrom:
+                secretKeyRef:
+                  name: airflow
+                  key: sqlAlchemyConn
+            - name: AIRFLOW__CORE__FERNET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: airflow
+                  key: fernetKey
+            - name: AIRFLOW__WEBSERVER__AUTHENTICATE
+              value: "True"
+            - name: AIRFLOW__WEBSERVER__AUTH_BACKEND
+              value: "airflow.contrib.auth.backends.password_auth"
+            - name: AIRFLOW__SMTP__SMTP_HOST
+              value: "<change>"
+            - name: AIRFLOW__SMTP__SMTP_PORT
+              value: "<change>"
+            - name: AIRFLOW__SMTP__SMTP_MAIL_FROM
+              value: "<change>"
+            - name: AIRFLOW__SMTP__SMTP_USER
+              value: "<change>"
+            - name: AIRFLOW__SMTP__SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: airflow
+                  key: emailPassword
+            - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+              value: "<change>"
+            - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+              value: <change>
+            - name: AIRFLOW__KUBERNETES__DAGS_IN_IMAGE
+              value: "True"
+            - name: AIRFLOW__KUBERNETES__NAMESPACE
+              value: "airflow"              
+            - name: AIRFLOW__KUBERNETES__AIRFLOW_CONFIGMAP
+              value: "airflow-configmap"
+            - name: AIRFLOW__KUBERNETES__WORKER_PODS_CREATION_BATCH_SIZE
+              value: "32"        
+            - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+              value: "True"  
+            - name: AIRFLOW__WEBSERVER__BASE_URL
+              value: "<change>"
+            - name: AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY
+              value: "<change>"
+            - name: AIRFLOW__CORE__DAG_PROCESSOR_MANAGER_LOG_ROTATION
+              value: "<change>"
+            - name: AIRFLOW__CORE__BASE_LOG_FOLDER
+              value: "<change>"
+            - name: AIRFLOW__KUBERNETES__LOGS_VOLUME_CLAIM
+              value: "nfs-airflow-logs"
+          command: ["airflow"]
+          args: ["scheduler"]
+          imagePullPolicy: Always
+          resources:
+            limits:
+              memory: "4096Mi"
+            requests:
+              cpu: "500m"
+              memory: "2048Mi"
+      volumes:
+          - name: logs
+            persistentVolumeClaim:
+              claimName: nfs-airflow-logs
+      # affinity:
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #     - labelSelector:
+      #         matchExpressions:
+      #         - key: run
+      #           operator: In
+      #           values:
+      #           - airflow-webserver
+      #       topologyKey: "kubernetes.io/hostname"
